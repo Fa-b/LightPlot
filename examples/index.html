@@ -1,0 +1,57 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script language="javascript" type="text/javascript" src="../lightplot.min.js"></script>
+<script>
+var max_points = 100;
+var data1 = [];
+var data2 = 0;
+var data3 = 0;
+var data4 = 0;
+var data5 = [];
+var data55 = 0;
+
+document.addEventListener("DOMContentLoaded", function () {
+    lightplot = new LightPlot("plotcontainer", { background: { alpha: 0.0 }, grid: { ticks: { x: 9, y: 5 } }, xaxis: { ticks: 9 }, yaxis: { ticks: 2 } });
+    lightplot.setGrid();
+    lightplot.setXAxis([0, max_points]);
+    lightplot.setYAxis([0, 200]);
+    lightplot.addGraph((x) => {return data1[Math.round(x)]});
+    lightplot.addGraph((x) => {return 150 + 10 * Math.sin(x / 30 * Math.PI) * data2});
+    lightplot.addGraph((x) => {return 120 + 10 * Math.cos((data3 * x) / 30 * Math.PI)});
+    lightplot.addGraph((x) => {return 80 + 10 * Math.sin(x / 30 * data4) });
+    lightplot.addGraph((x) => {return 40 + 10 * Math.sin(data5[Math.round(x)] * Math.PI * 5) });
+});
+
+setInterval(() => {
+	// in case max_points may change during execution
+    while(data1.length > max_points)
+        data1.shift();
+    data1.push(170 + Math.random() * 20);
+    lightplot.setXAxis([0, max_points]);
+    lightplot.updateGraph(0);
+	
+	data2 = Math.random();
+    lightplot.updateGraph(1);
+	
+	data3 = 2 + Math.random();
+    lightplot.updateGraph(2);
+	
+	data4++;
+	if(data4 >= 5 * Math.PI)
+		data4 = 0;
+    lightplot.updateGraph(3);
+}, 200);
+
+setInterval(() => {
+    while(data5.length > max_points)
+        data5.shift();
+	data5.push(data55++/200);
+    lightplot.updateGraph(4);
+}, 20);
+
+</script>
+</head>
+<body class="home">
+<div style="display:flex;justify-content: center;">
+<div id="plotcontainer" style="width:400px;height:500px;position:relative;"></div>
+</div>
+</body></html>
