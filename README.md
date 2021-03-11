@@ -24,7 +24,7 @@ In your js set it up for example like this:
     lightplot.setGrid();
     lightplot.setXAxis([0, max_points]);
     lightplot.setYAxis([0, 100]);
-    lightplot.addGraph((x) => {return array_of_y_data[Math.round(x)]});
+    lightplot.addGraph((x) => {return supplyData[Math.round(x)]});
   ...
 ```
 Somewhere in your code where you retrieve data:
