@@ -11,22 +11,22 @@ var data55 = 0;
 
 document.addEventListener("DOMContentLoaded", function () {
     lightplot = new LightPlot("plotcontainer", { background: { alpha: 0.0 }, grid: { ticks: { x: 9, y: 5 } }, xaxis: { ticks: 9 }, yaxis: { ticks: 2 } });
-    lightplot.setXAxis([-max_points/2, max_points]);
-    lightplot.setYAxis([-64, 200]);
+    lightplot.setXAxis([-max_points/4, max_points], { offset: { x: 50 }, lineWidth:2 });
+    lightplot.setYAxis([-50, 200], { offset: { y: 75 }, lineWidth:2 });
     lightplot.setGrid();
     lightplot.addGraph((x) => {return data1[Math.round(x)]});
-    lightplot.addGraph((x) => {return 150 + 10 * Math.sin(x / 30 * Math.PI) * data2});
-    lightplot.addGraph((x) => {return 120 + 10 * Math.cos((data3 * x) / 30 * Math.PI)});
-    lightplot.addGraph((x) => {return 80 + 10 * Math.sin(x / 30 * data4) });
-    lightplot.addGraph((x) => {return 40 + 10 * Math.sin(data5[Math.round(x)] * Math.PI * 5) }, {lineWidth: 3});
+    lightplot.addGraph((x) => {return 120 + 10 * Math.sin(x / 30 * Math.PI) * data2});
+    lightplot.addGraph((x) => {return 80 + 10 * Math.cos((data3 * x) / 30 * Math.PI)});
+    lightplot.addGraph((x) => {return 40 + 10 * Math.sin(x / 30 * data4) });
+    lightplot.addGraph((x) => {return 0 + 10 * Math.sin(data5[Math.round(x)] * Math.PI * 5) }, {lineWidth: 3});
 });
 
 setInterval(() => {
 	// in case max_points may change during execution
     while(data1.length > max_points)
         data1.shift();
-    data1.push(170 + Math.random() * 20);
-    lightplot.setXAxis([-max_points/2, max_points]);
+    data1.push(150 + Math.random() * 20);
+    lightplot.setXAxis([-max_points/4, max_points]);
     lightplot.updateGraph(0);
 	
 	data2 = Math.random();
