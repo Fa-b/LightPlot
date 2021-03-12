@@ -58,45 +58,49 @@ var createCanvas = function (container, zIndex) {
     return {"ctx": ctx, "width": rect.width, "height": rect.height};
 }
 
-var defaultBGOpts = {offset: { x: 0, y: 0 }, color: "#FFFFFF", alpha: 1.0};
+// Axis class
 var defaultGridOpts = {ticks: { x: 0, y: 5 }, offset: { x: 0, y: 0 }, type: "linear", color: "#D3D3D3", lineWidth: 1, alpha: 1.0};
 var defaultXAxisOpts = {ticks: 0, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, type: "linear", position: "bottom", color: "#000000", lineWidth: 1, alpha: 1.0};
 var defaultYAxisOpts = {ticks: 5, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, type: "linear", position: "left", color: "#000000", lineWidth: 1, alpha: 1.0};
-var defaultGraphOpts = {offset: { x: 0, y: 0 }, color: defaultGraphColors, lineWidth: 1, alpha: .5};
 
-function LightPlot(placeholder, options){
-    this.container;
-    this.optionsOverride;
-    this.graphs = [];
-    this.container = document.getElementById(placeholder);
-
-    this.optionsOverride = options;
-    this.setBackground();
+function LightAxis(xRange, yRange, placeholder, options) {
+    if(!Array.isArray(xRange) || !Array.isArray(yRange) || placeholder === undefined)
+		throw new Error("You need to at least specify x and y ranges and a container id or instance.");
+	if(typeof placeholder === "string")
+		this.container = document.getElementById(placeholder);
+	else if(placeholder instanceof LightPlot)
+		this.container = placeholder.container;
+		
+	if(options === undefined)
+		options = {};
+	this.setAxis(xRange, yRange, options);
 	
+	// keep track of affecting changes (avoid updating without changes)
+	this.lastxDomainOffset
 	this.xDomainOffset;
+	this.lastyDomainOffset
 	this.yDomainOffset;
-
-    this.updateAll();
-
 }
 
-LightPlot.prototype.setBackground = function(options) {
-    if(!this.background)
-        this.background = createCanvas(this.container, 1);
-    this.background = {...defaultBGOpts, ...this.optionsOverride.background, ...this.background, ...options};
-	
-	if(!this.background.offset.x)
-		this.background.offset.x = 0;
-	if(!this.background.offset.y)
-		this.background.offset.y = 0;
-
-    this.updateBackground();
+LightAxis.prototype.setAxis = function(xRange, yRange, options) {
+	if(!Array.isArray(xRange))
+		options = xRange;
+	else if(!Array.isArray(yRange))
+		options = yRange;
+	if(!options)
+		options = {};
+	if(typeof options !== "object")
+		throw new Error("Object required for options");
+		
+	this.setGrid(options.grid);
+	this.setXAxis(xRange, options.xaxis);
+	this.setYAxis(yRange, options.yaxis);
 }
-    
-LightPlot.prototype.setGrid = function(options) {
+
+LightAxis.prototype.setGrid = function(options) {
     if(!this.grid)
         this.grid = createCanvas(this.container, 2);
-    this.grid = {...defaultGridOpts, ...this.optionsOverride.grid, ...this.grid, ...options};
+    this.grid = {...defaultGridOpts, ...this.grid, ...options};
 	
 	if(!this.grid.offset.x)
 		this.grid.offset.x = 0;
@@ -104,92 +108,60 @@ LightPlot.prototype.setGrid = function(options) {
 		this.grid.offset.y = 0;
 
     this.updateGrid();
-    this.updateXAxis();
-    this.updateYAxis();
 }
 
 // Todo: multiple axes 
-LightPlot.prototype.setXAxis = function(range = null, options) {
+LightAxis.prototype.setXAxis = function(range = null, options) {
     if(!this.xaxis)
         this.xaxis = createCanvas(this.container, 4);
 
-    if(range) {
+    if(Array.isArray(range)) {
         this.xaxis.domain = {from: range[0], to: range[1]};
     }
 	
-    this.xaxis = {...defaultXAxisOpts, ...this.optionsOverride.xaxis, ...this.xaxis, ...options};
+    this.xaxis = {...defaultXAxisOpts, ...this.xaxis, ...options};
 	
 	if(!this.xaxis.offset.x)
 		this.xaxis.offset.x = 0;
 	if(!this.xaxis.offset.y)
 		this.xaxis.offset.y = 0;
 
-    this.updateXAxis();
-    this.updateYAxis();
-    this.updateGrid();
+	
+	this.lastxDomainOffset = this.xDomainOffset;
+	this.xDomainOffset = (-1 * this.xaxis.domain.from) * (this.xaxis.width)/(this.xaxis.domain.to - this.xaxis.domain.from);
+    
+	if(this.lastxDomainOffset !== this.xDomainOffset)
+		this.update();
+	else
+		this.updateXAxis();
 }
 
-LightPlot.prototype.setYAxis = function(range = null, options) {
+LightAxis.prototype.setYAxis = function(range = null, options) {
     if(!this.yaxis)
         this.yaxis = createCanvas(this.container, 4);
 
-    if(range) {
+    if(Array.isArray(range)) {
         this.yaxis.domain = {from: range[0], to: range[1]};
     }
 
-    this.yaxis = {...defaultYAxisOpts, ...this.optionsOverride.yaxis, ...this.yaxis, ...options};
+    this.yaxis = {...defaultYAxisOpts, ...this.yaxis, ...options};
 	
 	if(!this.yaxis.offset.x)
 		this.yaxis.offset.x = 0;
 	if(!this.yaxis.offset.y)
 		this.yaxis.offset.y = 0;
-
-    this.updateYAxis();
-    this.updateXAxis();
-    this.updateGrid();
-}
-
-// Todo: graphs should be assigned to axes
-LightPlot.prototype.addGraph = function(lambda, options){
-    this.graphs.push(createCanvas(this.container, 3));
-    let idx = this.graphs.length - 1;
-
-    if(typeof lambda === "function")
-        this.graphs[idx].function = lambda;
-    if(typeof lambda === "object" && object === undefined)
-        object = lambda;
-
-    this.graphs[idx] = {...defaultGraphOpts, ...this.graphs[idx], ...options};
 	
-	if(!this.graphs[idx].offset.x)
-		this.graphs[idx].offset.x = 0;
-	if(!this.graphs[idx].offset.y)
-		this.graphs[idx].offset.y = 0;
-
-    this.updateGraph(idx);
-
-    return idx;
+	this.lastyDomainOffset = this.yDomainOffset;
+	this.yDomainOffset = (-1 * this.yaxis.domain.from) * (this.yaxis.height)/(this.yaxis.domain.to - this.yaxis.domain.from);
+	
+	if(this.lastyDomainOffset !== this.yDomainOffset)
+		this.update();
+	else
+		this.updateYAxis();
 }
 
-LightPlot.prototype.updateAll = function() {
-    this.updateBackground();
-    this.updateGrid();
-    this.updateXAxis();
-    this.updateYAxis();
-    for(let i = 0; i < this.graphs.length; i++) {
-        this.updateGraph(i);
-    }
-} 
-
-LightPlot.prototype.updateBackground = function() {
-    this.background.ctx.clearRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
-    this.background.ctx.globalAlpha = this.background.alpha;
-    this.background.ctx.fillStyle = this.background.color;
-    this.background.ctx.fillRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
-}
-
-LightPlot.prototype.updateGrid = function() {
-    if(this.grid) {
+LightAxis.prototype.updateGrid = function() {
+	if(this.grid) {
         if(this.grid.type == "linear") {
             if(this.grid.ticks.x) {
                 var xInterval = this.grid.width / (this.grid.ticks.x + 1);
@@ -225,11 +197,9 @@ LightPlot.prototype.updateGrid = function() {
         }
     }
 }
-    
-LightPlot.prototype.updateXAxis = function() {
-    if(this.xaxis){
-				
-        this.xDomainOffset = (-1 * this.xaxis.domain.from) * (this.xaxis.width)/(this.xaxis.domain.to - this.xaxis.domain.from);
+
+LightAxis.prototype.updateXAxis = function() {
+	if(this.xaxis){
 		
         this.xaxis.ctx.clearRect(this.xaxis.offset.x, this.xaxis.offset.y, this.xaxis.width, this.xaxis.height);
         this.xaxis.ctx.globalAlpha = this.xaxis.alpha;
@@ -271,11 +241,9 @@ LightPlot.prototype.updateXAxis = function() {
         this.xaxis.ctx.stroke();
     }
 }
-    
-LightPlot.prototype.updateYAxis = function() {
-    if(this.yaxis){
-			
-        this.yDomainOffset = (-1 * this.yaxis.domain.from) * (this.yaxis.height)/(this.yaxis.domain.to - this.yaxis.domain.from);
+
+LightAxis.prototype.updateYAxis = function() {
+	if(this.yaxis){
 
         this.yaxis.ctx.clearRect(this.yaxis.offset.x, this.yaxis.offset.y, this.yaxis.width, this.yaxis.height);
         this.yaxis.ctx.globalAlpha = this.yaxis.alpha;
@@ -318,39 +286,156 @@ LightPlot.prototype.updateYAxis = function() {
     }
 }
 
-// Todo, associate graphs with axes..
-LightPlot.prototype.updateGraph = function(idx) {
-    let graph = this.graphs[idx];
-    
-    graph.ctx.clearRect(graph.offset.x, graph.offset.y, graph.width, graph.height);
-    graph.ctx.globalAlpha = graph.alpha;
-    graph.ctx.fillStyle = Array.isArray(graph.color) ? defaultGraphColors[idx] : graph.color;
-	graph.ctx.lineWidth = graph.lineWidth;
-	let offset = (graph.ctx.lineWidth % 2 == 1) ? 0.5 : 0;
+LightAxis.prototype.update = function() {
+	this.lastxDomainOffset = this.xDomainOffset;
+	this.lastyDomainOffset = this.yDomainOffset;
+	
+	this.updateGrid();
+	this.updateXAxis();
+	this.updateYAxis();
+}
 
+//Graph class
+var defaultGraphOpts = {axis: 0, offset: { x: 0, y: 0 }, color: defaultGraphColors, lineWidth: 1, alpha: .5};
+
+function LightGraph(axis, lambda, placeholder, options) {
+    if(!(axis instanceof LightAxis) || typeof lambda !== "function" || placeholder === undefined)
+		throw new Error("Invalid input provided :-(");
+	if(typeof placeholder === "string")
+		this.container = document.getElementById(placeholder);
+	else if(placeholder instanceof LightPlot)
+		this.container = placeholder.container;
+	
+    if(!this.graph)
+        this.graph = createCanvas(this.container, 3);
+
+	this.graph.axis = axis;
+	this.graph.function = lambda;
+	
+	if(options === undefined)
+		options = {};
+	this.setGraph(options);
+	
+	if(!this.graph.offset.x)
+		this.graph.offset.x = 0;
+	if(!this.graph.offset.y)
+		this.graph.offset.y = 0;
+
+    this.update();
+}
+
+LightGraph.prototype.setGraph = function(options) {
+	if(typeof options !== "object")
+		throw new Error("Object required for options");
+		
+	this.graph = {...defaultGraphOpts, ...this.graph, ...options};
+}
+
+LightGraph.prototype.update = function() {    
+    this.graph.ctx.clearRect(this.graph.offset.x, this.graph.offset.y, this.graph.width, this.graph.height);
+    this.graph.ctx.globalAlpha = this.graph.alpha;
+    this.graph.ctx.fillStyle = this.graph.color;
+	this.graph.ctx.lineWidth = this.graph.lineWidth;
+	let offset = (this.graph.ctx.lineWidth % 2 == 1) ? 0.5 : 0;
 
     // Todo: improve redraw algorithm, instead of drawing each pixel new on update, keep track of indices where it actually changes (in time domain)
     //We cache previous y2 values because they're the same as y1 on the next iteration.
     var cacheY1 = null;
     var cacheY1Pixel = null;
-    for(var i = 0; i <= graph.width; i++){
-        var x = ((i)  * ((this.xaxis.domain.to - this.xaxis.domain.from) / graph.width)) + this.xaxis.domain.from;
+    for(var i = 0; i <= this.graph.width; i++){
+        var x = ((i)  * ((this.graph.axis.xaxis.domain.to - this.graph.axis.xaxis.domain.from) / this.graph.width)) + this.graph.axis.xaxis.domain.from;
         
-        if(x < this.xaxis.domain.from || x > this.xaxis.domain.to)
+        if(x < this.graph.axis.xaxis.domain.from || x > this.graph.axis.xaxis.domain.to)
             continue;
         
-        var y1 = (cacheY1 == null) ? graph.function(x) : cacheY1;
-        var y2 = graph.function(x+((this.xaxis.domain.to - this.xaxis.domain.from) / graph.width));
+        var y1 = (cacheY1 == null) ? this.graph.function(x) : cacheY1;
+        var y2 = this.graph.function(x+((this.graph.axis.xaxis.domain.to - this.graph.axis.xaxis.domain.from) / this.graph.width));
         
-        var y1Pixel = (cacheY1Pixel == null) ? ((y1 - this.yaxis.domain.from) * (graph.height) / (this.yaxis.domain.to - this.yaxis.domain.from)) : cacheY1Pixel;
-        var y2Pixel = ((y2 - this.yaxis.domain.from) * (graph.height) / (this.yaxis.domain.to - this.yaxis.domain.from));
+        var y1Pixel = (cacheY1Pixel == null) ? ((y1 - this.graph.axis.yaxis.domain.from) * (this.graph.height) / (this.graph.axis.yaxis.domain.to - this.graph.axis.yaxis.domain.from)) : cacheY1Pixel;
+        var y2Pixel = ((y2 - this.graph.axis.yaxis.domain.from) * (this.graph.height) / (this.graph.axis.yaxis.domain.to - this.graph.axis.yaxis.domain.from));
         
         var point = Math.max(y1Pixel, y2Pixel);
-        var height = Math.abs(y1Pixel-y2Pixel)+graph.lineWidth;
+        var height = Math.abs(y1Pixel-y2Pixel)+this.graph.lineWidth;
         
-        graph.ctx.fillRect(i + offset, graph.height - point - offset, graph.lineWidth, height);
+        this.graph.ctx.fillRect(i + offset, this.graph.height - point - offset, this.graph.lineWidth, height);
         
         cacheY1 = y2;
         cacheY1Pixel = y2Pixel;
     }
+}
+
+//Plot class
+var defaultBGOpts = {offset: { x: 0, y: 0 }, color: "#FFFFFF", alpha: 1.0};
+
+function LightPlot(placeholder, options) {
+	this.axes = []
+    this.graphs = [];
+    this.container = document.getElementById(placeholder);
+
+    this.optionsOverride = options;
+    this.setBackground();
+
+    this.update();
+}
+
+LightPlot.prototype.setBackground = function(options) {
+    if(!this.background)
+        this.background = createCanvas(this.container, 1);
+    this.background = {...defaultBGOpts, ...this.optionsOverride.background, ...this.background, ...options};
+	
+	if(!this.background.offset.x)
+		this.background.offset.x = 0;
+	if(!this.background.offset.y)
+		this.background.offset.y = 0;
+
+    this.updateBackground();
+}
+
+LightPlot.prototype.addAxis = function(axis, options){
+	if(axis instanceof LightAxis) {
+		axis.setAxis(options);
+		this.axes.push(axis);
+		return axis;
+	} else if(typeof axis === "object" && axis.xrange && axis.yrange && options == undefined)
+		options = axis;
+	delete options.yrange;
+	delete options.xrange;
+	let ax = new LightAxis(axis.xrange, axis.yrange, this.container, options);
+	this.axes.push(ax);	
+	return ax;
+}
+
+LightPlot.prototype.addGraph = function(graph, options){
+	if(options === undefined)
+		options = {};
+	if(!options.color)
+		options.color = defaultGraphColors[this.graphs.length];
+	
+	if(graph instanceof LightGraph) {
+		graph.setGraph(options);
+		this.graphs.push(graph);
+		return graph;
+	} else if(typeof graph === "object" && graph.axis && graph.lambda)
+		options = graph;
+	delete options.axis;
+	delete options.lambda;
+	if(graph.axis && typeof graph.axis === "number")
+		graph.axis = this.axes[graph.axis];
+	let gr = new LightGraph(graph.axis, graph.lambda, this.container, options);
+    this.graphs.push(gr);
+    return gr;
+}
+
+LightPlot.prototype.update = function() {
+    this.updateBackground();
+
+	this.axes.forEach(axis => axis.update());
+	this.graphs.forEach(graph => graph.update());
+} 
+
+LightPlot.prototype.updateBackground = function() {
+    this.background.ctx.clearRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
+    this.background.ctx.globalAlpha = this.background.alpha;
+    this.background.ctx.fillStyle = this.background.color;
+    this.background.ctx.fillRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
 }
