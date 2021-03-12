@@ -72,6 +72,9 @@ function LightPlot(placeholder, options){
 
     this.optionsOverride = options;
     this.setBackground();
+	
+	this.xDomainOffset;
+	this.yDomainOffset;
 
     this.updateAll();
 
@@ -91,6 +94,8 @@ LightPlot.prototype.setGrid = function(options) {
     this.grid = {...this.grid, ...defaultGridOpts, ...this.optionsOverride.grid, ...options};
 
     this.updateGrid();
+    this.updateXAxis();
+    this.updateYAxis();
 }
 
 // Todo: multiple axes 
@@ -102,9 +107,11 @@ LightPlot.prototype.setXAxis = function(range = null, options) {
         this.xaxis.domain = {from: range[0], to: range[1]};
     }
 
-    this.xaxis = {...this.xaxis, ...defaultYAxisOpts, ...this.optionsOverride.xaxis, ...options};
+    this.xaxis = {...this.xaxis, ...defaultXAxisOpts, ...this.optionsOverride.xaxis, ...options};
 
-    this.updateXAxis()
+    this.updateXAxis();
+    this.updateYAxis();
+    this.updateGrid();
 }
 
 LightPlot.prototype.setYAxis = function(range = null, options) {
@@ -117,7 +124,9 @@ LightPlot.prototype.setYAxis = function(range = null, options) {
 
     this.yaxis = {...this.yaxis, ...defaultYAxisOpts, ...this.optionsOverride.yaxis, ...options};
 
-    this.updateYAxis()
+    this.updateYAxis();
+    this.updateXAxis();
+    this.updateGrid();
 }
 
 // Todo: graphs should be assigned to axes
@@ -131,6 +140,8 @@ LightPlot.prototype.addGraph = function(lambda, options){
         object = lambda;
 
     this.graphs[idx] = {...this.graphs[idx], ...defaultGraphOpts, ...options};
+	
+	console.log(this.graphs[idx]);
 
     this.updateGraph(idx);
 
@@ -172,16 +183,18 @@ LightPlot.prototype.updateGrid = function() {
             this.grid.ctx.beginPath();
 
             if(xInterval) {
-                for(let i = 1; i <= this.grid.ticks.x; ++i) {
-                    this.grid.ctx.moveTo(i * xInterval + offset, this.grid.offset.y);
-                    this.grid.ctx.lineTo(i * xInterval + offset, this.grid.height);
+				let shift = this.xDomainOffset % xInterval;
+                for(let i = 0; i <= this.grid.ticks.x; ++i) {
+                    this.grid.ctx.moveTo(i * xInterval + offset + shift, this.grid.offset.y);
+                    this.grid.ctx.lineTo(i * xInterval + offset + shift, this.grid.height);
                 }
             }
             
             if(yInterval) {
-                for(let i = 1; i <= this.grid.ticks.y; ++i) {
-                    this.grid.ctx.moveTo(this.grid.offset.x, i * yInterval - offset);
-                    this.grid.ctx.lineTo(this.grid.width, i * yInterval - offset);
+				let shift = yInterval - this.yDomainOffset % yInterval;
+                for(let i = 0; i <= this.grid.ticks.y; ++i) {
+                    this.grid.ctx.moveTo(this.grid.offset.x, i * yInterval - offset + shift);
+                    this.grid.ctx.lineTo(this.grid.width, i * yInterval - offset + shift);
                 }
             }
 
@@ -192,37 +205,41 @@ LightPlot.prototype.updateGrid = function() {
     
 LightPlot.prototype.updateXAxis = function() {
     if(this.xaxis){
-        var xAxis = (-1 * this.xaxis.domain.from) * (this.xaxis.width)/(this.xaxis.domain.to - this.xaxis.domain.from);
+        this.xDomainOffset = (-1 * this.xaxis.domain.from) * (this.xaxis.width)/(this.xaxis.domain.to - this.xaxis.domain.from);
 
         this.xaxis.ctx.clearRect(this.xaxis.offset.x, this.xaxis.offset.y, this.xaxis.width, this.xaxis.height);
         this.xaxis.ctx.globalAlpha = this.xaxis.alpha;
         this.xaxis.ctx.strokeStyle = this.xaxis.color;
         this.xaxis.ctx.strokeWidth = this.xaxis.lineWidth;
-        let offset = (this.grid.ctx.strokeWidth % 2 == 1) ? 0.5 : 0;
+        let offset = (this.xaxis.ctx.strokeWidth % 2 == 1) ? 0.5 : 0;
         this.xaxis.ctx.beginPath();
 
-        var yPos = this.xaxis.height - this.xaxis.offset.y - offset;
+        var yPos = this.xaxis.height - this.xaxis.offset.y - offset - this.yDomainOffset;
 
-        if(this.xaxis.position === "top") {
-            yPos = this.xaxis.offset.y + offset;
+        if(this.xaxis.position === "bottom") { // Doesn't make much sense this way
+            yPos = this.xaxis.offset.y + offset + this.yDomainOffset;
         }
 
-        // Todo: graphdomain
         this.xaxis.ctx.moveTo(this.xaxis.offset.x, yPos);
         this.xaxis.ctx.lineTo(this.xaxis.width, yPos);
         
         if(this.xaxis.type == "linear") {
-            var tickStart = yPos + this.xaxis.tickSize / 2 - this.xaxis.tickOffset;
-            var tickEnd = yPos - this.xaxis.tickSize / 2 - this.xaxis.tickOffset;
+			let half = this.xaxis.tickSize / 2 - this.xaxis.tickOffset;
+            var tickStart = yPos + half;
+            var tickEnd = yPos - half;
 
             if(this.xaxis.ticks) {
                 var xInterval = this.xaxis.width / (this.xaxis.ticks + 1);
             }
 
             if(xInterval) {
-                for(let i = 1; i <= this.xaxis.ticks; ++i) {
-                    this.xaxis.ctx.moveTo(i * xInterval + offset, tickStart);
-                    this.xaxis.ctx.lineTo(i * xInterval + offset, tickEnd);
+				let shift = this.xDomainOffset % xInterval;
+                for(let i = 0; i <= this.xaxis.ticks; ++i) {
+					let pos = i * xInterval + shift;
+					if(pos === this.xDomainOffset)
+						continue;
+                    this.xaxis.ctx.moveTo(pos + offset, tickStart);
+                    this.xaxis.ctx.lineTo(pos + offset, tickEnd);
                 }
             }
         }
@@ -233,37 +250,41 @@ LightPlot.prototype.updateXAxis = function() {
     
 LightPlot.prototype.updateYAxis = function() {
     if(this.yaxis){
-        var yAxis = (-1 * this.yaxis.domain.from) * (this.yaxis.height)/(this.yaxis.domain.to - this.yaxis.domain.from);
+        this.yDomainOffset = (-1 * this.yaxis.domain.from) * (this.yaxis.height)/(this.yaxis.domain.to - this.yaxis.domain.from);
 
         this.yaxis.ctx.clearRect(this.yaxis.offset.x, this.yaxis.offset.y, this.yaxis.width, this.yaxis.height);
         this.yaxis.ctx.globalAlpha = this.yaxis.alpha;
         this.yaxis.ctx.strokeStyle = this.yaxis.color;
         this.yaxis.ctx.strokeWidth = this.yaxis.lineWidth;
-        let offset = (this.grid.ctx.strokeWidth % 2 == 1) ? 0.5 : 0;
+        let offset = (this.yaxis.ctx.strokeWidth % 2 == 1) ? 0.5 : 0;
         this.yaxis.ctx.beginPath();
 
-        var xPos = this.yaxis.offset.x + offset;
+        var xPos = this.yaxis.offset.x + offset + this.xDomainOffset;
 
-        if(this.yaxis.position === "right") {
-            xPos = this.yaxis.width - this.yaxis.offset.x - offset;
+        if(this.yaxis.position === "right") { // Doesn't make much sense this way
+            xPos = this.yaxis.width - this.yaxis.offset.x - offset - this.xDomainOffset;
         }
 
-        // Todo: graphrange
         this.yaxis.ctx.moveTo(xPos, this.yaxis.height - this.yaxis.offset.y);
         this.yaxis.ctx.lineTo(xPos, 0);
 
         if(this.yaxis.type == "linear") {
-            var tickStart = xPos + this.yaxis.tickSize / 2 + this.yaxis.tickOffset;
-            var tickEnd = xPos - this.yaxis.tickSize / 2 + this.yaxis.tickOffset;
+			let half = this.yaxis.tickSize / 2 + this.yaxis.tickOffset;
+            var tickStart = xPos + half;
+            var tickEnd = xPos - half;
 
             if(this.yaxis.ticks) {
                 var yInterval = this.yaxis.height / (this.yaxis.ticks + 1);
             }
 
             if(yInterval) {
-                for(let i = 1; i <= this.yaxis.ticks; ++i) {
-                    this.yaxis.ctx.moveTo(tickStart, i * yInterval - offset);
-                    this.yaxis.ctx.lineTo(tickEnd, i * yInterval - offset);
+				let shift = this.yDomainOffset % yInterval;
+                for(let i = 0; i <= this.yaxis.ticks; ++i) {
+					let pos = i * yInterval - shift;
+					if(pos === this.yDomainOffset)
+						continue;
+                    this.yaxis.ctx.moveTo(tickStart, pos - offset);
+                    this.yaxis.ctx.lineTo(tickEnd, pos - offset);
                 }
             }
         }
@@ -279,6 +300,9 @@ LightPlot.prototype.updateGraph = function(idx) {
     graph.ctx.clearRect(graph.offset.x, graph.offset.y, graph.width, graph.height);
     graph.ctx.globalAlpha = graph.alpha;
     graph.ctx.fillStyle = Array.isArray(graph.color) ? defaultGraphColors[idx] : graph.color;
+	graph.ctx.strokeWidth = graph.lineWidth;
+	let offset = (graph.ctx.strokeWidth % 2 == 1) ? 0.5 : 0;
+
 
     // Todo: improve redraw algorithm, instead of drawing each pixel new on update, keep track of indices where it actually changes (in time domain)
     //We cache previous y2 values because they're the same as y1 on the next iteration.
@@ -297,9 +321,9 @@ LightPlot.prototype.updateGraph = function(idx) {
         var y2Pixel = ((y2 - this.yaxis.domain.from) * (graph.height) / (this.yaxis.domain.to - this.yaxis.domain.from));
         
         var point = Math.max(y1Pixel, y2Pixel);
-        var height = Math.abs(y1Pixel-y2Pixel)+1;
+        var height = Math.abs(y1Pixel-y2Pixel)+graph.lineWidth;
         
-        graph.ctx.fillRect(i, graph.height - point, 1, height);
+        graph.ctx.fillRect(i + offset, graph.height - point - offset, graph.lineWidth, height);
         
         cacheY1 = y2;
         cacheY1Pixel = y2Pixel;
