@@ -34,13 +34,15 @@ var defaultGraphColors = [
     '#17becf'   // blue-teal
 ];
 
-var createCanvas = function (container, zIndex) {
+var createCanvas = function (container, zIndex, xOffset, yOffset) {
     var canvas = document.createElement("canvas");
     var dpr = window.devicePixelRatio || 1;
     // Get the size of the canvas in CSS pixels.
     var rect = container.getBoundingClientRect();
     // Give the canvas pixel dimensions of their
     // size * the device pixel ratio.
+	canvas.style.left = (xOffset?xOffset:0);
+	canvas.style.bottom = (yOffset?yOffset:0);
     canvas.width = rect.width;
     canvas.width *= dpr;
     canvas.height = rect.height;
@@ -60,8 +62,8 @@ var createCanvas = function (container, zIndex) {
 
 // Axis class
 var defaultGridOpts = {ticks: { x: 0, y: 5 }, offset: { x: 0, y: 0 }, type: "linear", color: "#D3D3D3", lineWidth: 1, alpha: 1.0};
-var defaultXAxisOpts = {ticks: 0, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, type: "linear", position: "bottom", color: "#000000", lineWidth: 1, alpha: 1.0};
-var defaultYAxisOpts = {ticks: 5, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, type: "linear", position: "left", color: "#000000", lineWidth: 1, alpha: 1.0};
+var defaultXAxisOpts = {ticks: 5, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, arrow: { show: true, size: 5, position:"right" }, type: "linear", position: "bottom", color: "#000000", lineWidth: 1, alpha: 1.0};
+var defaultYAxisOpts = {ticks: 5, tickSize: 10, tickOffset: 0, offset: { x: 0, y: 0 }, arrow: { show: true, size: 5, position:"top" }, type: "linear", position: "left", color: "#000000", lineWidth: 1, alpha: 1.0};
 
 function LightAxis(xRange, yRange, placeholder, options) {
     if(!Array.isArray(xRange) || !Array.isArray(yRange) || placeholder === undefined)
@@ -70,16 +72,22 @@ function LightAxis(xRange, yRange, placeholder, options) {
 		this.container = document.getElementById(placeholder);
 	else if(placeholder instanceof LightPlot)
 		this.container = placeholder.container;
-		
+	
+	// keep track of affecting changes (avoid updating without changes)
+	this.lastGridOffsetX;
+	this.lastGridOffsetY;
+	this.lastXAxisOffsetX;
+	this.lastXAxisOffsetY;
+	this.lastYAxisOffsetX;
+	this.lastYAxisOffsetY;
+	this.lastxDomainOffset;
+	this.xDomainOffset;
+	this.lastyDomainOffset;
+	this.yDomainOffset;
+	
 	if(options === undefined)
 		options = {};
 	this.setAxis(xRange, yRange, options);
-	
-	// keep track of affecting changes (avoid updating without changes)
-	this.lastxDomainOffset
-	this.xDomainOffset;
-	this.lastyDomainOffset
-	this.yDomainOffset;
 }
 
 LightAxis.prototype.setAxis = function(xRange, yRange, options) {
@@ -101,11 +109,18 @@ LightAxis.prototype.setGrid = function(options) {
     if(!this.grid)
         this.grid = createCanvas(this.container, 2);
     this.grid = {...defaultGridOpts, ...this.grid, ...options};
+	if(options) {
+		this.grid.ticks = {...defaultGridOpts.ticks, ...options.ticks};
+		this.grid.offset = {...defaultGridOpts.offset, ...options.offset};
+	}
 	
-	if(!this.grid.offset.x)
-		this.grid.offset.x = 0;
-	if(!this.grid.offset.y)
-		this.grid.offset.y = 0;
+	if(this.lastGridOffsetX !== this.grid.offset.x || this.lastGridOffsetY != this.grid.offset.y) {
+		this.container.removeChild(this.grid.ctx.canvas);
+		this.grid.ctx = createCanvas(this.container, 2, this.grid.offset.x, this.grid.offset.y).ctx;
+		
+		this.lastGridOffsetX = this.grid.offset.x;
+		this.lastGridOffsetY = this.grid.offset.y;
+	}
 
     this.updateGrid();
 }
@@ -120,12 +135,18 @@ LightAxis.prototype.setXAxis = function(range = null, options) {
     }
 	
     this.xaxis = {...defaultXAxisOpts, ...this.xaxis, ...options};
+	if(options) {
+		this.xaxis.offset = {...defaultXAxisOpts.offset, ...options.offset};
+		this.xaxis.arrow = {...defaultXAxisOpts.arrow, ...options.arrow};
+	}
 	
-	if(!this.xaxis.offset.x)
-		this.xaxis.offset.x = 0;
-	if(!this.xaxis.offset.y)
-		this.xaxis.offset.y = 0;
-
+	if(this.lastXAxisOffsetX !== this.xaxis.offset.x || this.lastXAxisOffsetY != this.xaxis.offset.y) {
+		this.container.removeChild(this.xaxis.ctx.canvas);
+		this.xaxis.ctx = createCanvas(this.container, 4, this.xaxis.offset.x, this.xaxis.offset.y).ctx;
+		
+		this.lastXAxisOffsetX = this.xaxis.offset.x;
+		this.lastXAxisOffsetY = this.xaxis.offset.y;
+	}
 	
 	this.lastxDomainOffset = this.xDomainOffset;
 	this.xDomainOffset = (-1 * this.xaxis.domain.from) * (this.xaxis.width)/(this.xaxis.domain.to - this.xaxis.domain.from);
@@ -145,11 +166,18 @@ LightAxis.prototype.setYAxis = function(range = null, options) {
     }
 
     this.yaxis = {...defaultYAxisOpts, ...this.yaxis, ...options};
+	if(options) {
+		this.yaxis.offset = {...defaultYAxisOpts.offset, ...options.offset};
+		this.yaxis.arrow = {...defaultYAxisOpts.arrow, ...options.arrow};
+	}
 	
-	if(!this.yaxis.offset.x)
-		this.yaxis.offset.x = 0;
-	if(!this.yaxis.offset.y)
-		this.yaxis.offset.y = 0;
+	if(this.lastYAxisOffsetX !== this.yaxis.offset.x || this.lastYAxisOffsetY != this.yaxis.offset.y) {
+		this.container.removeChild(this.yaxis.ctx.canvas);
+		this.yaxis.ctx = createCanvas(this.container, 4, this.yaxis.offset.x, this.yaxis.offset.y).ctx;
+		
+		this.lastYAxisOffsetX = this.yaxis.offset.x;
+		this.lastYAxisOffsetY = this.yaxis.offset.y;
+	}
 	
 	this.lastyDomainOffset = this.yDomainOffset;
 	this.yDomainOffset = (-1 * this.yaxis.domain.from) * (this.yaxis.height)/(this.yaxis.domain.to - this.yaxis.domain.from);
@@ -170,7 +198,7 @@ LightAxis.prototype.updateGrid = function() {
                 var yInterval = this.grid.height / (this.grid.ticks.y + 1);
             }
 
-            this.grid.ctx.clearRect(this.grid.offset.x, this.grid.offset.y, this.grid.width, this.grid.height);
+            this.grid.ctx.clearRect(0, 0, this.grid.width, this.grid.height);
             this.grid.ctx.globalAlpha = this.grid.alpha;
             this.grid.ctx.strokeStyle = this.grid.color;
             this.grid.ctx.lineWidth = this.grid.lineWidth;
@@ -180,7 +208,7 @@ LightAxis.prototype.updateGrid = function() {
             if(xInterval) {
 				let shift = this.xDomainOffset % xInterval;
                 for(let i = 0; i <= this.grid.ticks.x; ++i) {
-                    this.grid.ctx.moveTo(i * xInterval + offset + shift, this.grid.offset.y);
+                    this.grid.ctx.moveTo(i * xInterval + offset + shift, 0);
                     this.grid.ctx.lineTo(i * xInterval + offset + shift, this.grid.height);
                 }
             }
@@ -188,7 +216,7 @@ LightAxis.prototype.updateGrid = function() {
             if(yInterval) {
 				let shift = yInterval - this.yDomainOffset % yInterval;
                 for(let i = 0; i <= this.grid.ticks.y; ++i) {
-                    this.grid.ctx.moveTo(this.grid.offset.x, i * yInterval - offset + shift);
+                    this.grid.ctx.moveTo(0, i * yInterval - offset + shift);
                     this.grid.ctx.lineTo(this.grid.width, i * yInterval - offset + shift);
                 }
             }
@@ -201,21 +229,28 @@ LightAxis.prototype.updateGrid = function() {
 LightAxis.prototype.updateXAxis = function() {
 	if(this.xaxis){
 		
-        this.xaxis.ctx.clearRect(this.xaxis.offset.x, this.xaxis.offset.y, this.xaxis.width, this.xaxis.height);
+        this.xaxis.ctx.clearRect(0, 0, this.xaxis.width, this.xaxis.height);
         this.xaxis.ctx.globalAlpha = this.xaxis.alpha;
         this.xaxis.ctx.strokeStyle = this.xaxis.color;
         this.xaxis.ctx.lineWidth = this.xaxis.lineWidth;
         let offset = (this.xaxis.ctx.lineWidth % 2 == 1) ? 0.5 : 0;
         this.xaxis.ctx.beginPath();
 
-        var yPos = this.xaxis.height - this.xaxis.offset.y - offset - this.yDomainOffset;
+        var yPos = this.xaxis.height - offset - this.yDomainOffset;
+		var xArrStart = this.xaxis.width;
+		var xArrEnd = xArrStart - this.xaxis.arrow.size;
 
+		if(this.xaxis.arrow.position === "left") {
+			xArrStart = 0;
+			xArrEnd = xArrStart + this.xaxis.arrow.size;
+		}
+		
         if(this.xaxis.position === "top") { // Doesn't make much sense this way
-            yPos = this.xaxis.offset.y + offset + this.yDomainOffset;
+            yPos = offset + this.yDomainOffset;
         }
 
-        this.xaxis.ctx.moveTo(this.xaxis.offset.x, yPos);
-        this.xaxis.ctx.lineTo(this.xaxis.width + this.xaxis.offset.x, yPos);
+        this.xaxis.ctx.moveTo(0, yPos);
+        this.xaxis.ctx.lineTo(this.xaxis.width, yPos);
 		
         if(this.xaxis.type == "linear") {
 			let half = this.xaxis.tickSize / 2 - this.xaxis.tickOffset;
@@ -230,13 +265,21 @@ LightAxis.prototype.updateXAxis = function() {
 				let shift = this.xDomainOffset % xInterval;
                 for(let i = 0; i <= this.xaxis.ticks; ++i) {
 					let pos = i * xInterval + shift;
-					if(pos === this.xDomainOffset || pos < this.xaxis.offset.x || pos > (this.xaxis.width + this.xaxis.offset.x))
+					if(pos === xArrStart)
 						continue;
                     this.xaxis.ctx.moveTo(pos + offset, tickStart);
                     this.xaxis.ctx.lineTo(pos + offset, tickEnd);
                 }
             }
         }
+		
+		if(this.xaxis.arrow.show) {
+			this.xaxis.ctx.moveTo(xArrStart, yPos);
+			this.xaxis.ctx.lineTo(xArrEnd, yPos + this.xaxis.arrow.size);
+			this.xaxis.ctx.moveTo(xArrStart, yPos);
+			this.xaxis.ctx.lineTo(xArrEnd, yPos - this.xaxis.arrow.size);
+			
+		}
 
         this.xaxis.ctx.stroke();
     }
@@ -245,21 +288,28 @@ LightAxis.prototype.updateXAxis = function() {
 LightAxis.prototype.updateYAxis = function() {
 	if(this.yaxis){
 
-        this.yaxis.ctx.clearRect(this.yaxis.offset.x, this.yaxis.offset.y, this.yaxis.width, this.yaxis.height);
+        this.yaxis.ctx.clearRect(0, 0, this.yaxis.width, this.yaxis.height);
         this.yaxis.ctx.globalAlpha = this.yaxis.alpha;
         this.yaxis.ctx.strokeStyle = this.yaxis.color;
         this.yaxis.ctx.lineWidth = this.yaxis.lineWidth;
         let offset = (this.yaxis.ctx.lineWidth % 2 == 1) ? 0.5 : 0;
         this.yaxis.ctx.beginPath();
 
-        var xPos = this.yaxis.offset.x + offset + this.xDomainOffset;
+        var xPos = offset + this.xDomainOffset;
+		var xArrStart = 0;
+		var xArrEnd = xArrStart + this.xaxis.arrow.size;
+		
+		if(this.yaxis.arrow.position === "bottom") {
+			xArrStart = this.yaxis.height;
+			xArrEnd = xArrStart - this.xaxis.arrow.size;
+		}
 
         if(this.yaxis.position === "right") { // Doesn't make much sense this way
-            xPos = this.yaxis.width - this.yaxis.offset.x - offset - this.xDomainOffset;
+            xPos = this.yaxis.width - offset - this.xDomainOffset;
         }
 
-        this.yaxis.ctx.moveTo(xPos, this.yaxis.height - this.yaxis.offset.y);
-        this.yaxis.ctx.lineTo(xPos, -this.yaxis.offset.y);
+        this.yaxis.ctx.moveTo(xPos, this.yaxis.height);
+        this.yaxis.ctx.lineTo(xPos, 0);
 
         if(this.yaxis.type == "linear") {
 			let half = this.yaxis.tickSize / 2 + this.yaxis.tickOffset;
@@ -274,13 +324,21 @@ LightAxis.prototype.updateYAxis = function() {
 				let shift = this.yDomainOffset % yInterval;
                 for(let i = 0; i <= this.yaxis.ticks; ++i) {
 					let pos = i * yInterval - shift;
-					if(pos === this.yDomainOffset || pos < -this.yaxis.offset.y || pos > (this.yaxis.height - this.yaxis.offset.y))
+					if(pos === xArrStart)
 						continue;
                     this.yaxis.ctx.moveTo(tickStart, pos - offset);
                     this.yaxis.ctx.lineTo(tickEnd, pos - offset);
                 }
             }
         }
+		
+		if(this.yaxis.arrow.show) {
+			this.yaxis.ctx.moveTo(xPos, xArrStart);
+			this.yaxis.ctx.lineTo(xPos + this.yaxis.arrow.size, xArrEnd);
+			this.yaxis.ctx.moveTo(xPos, xArrStart);
+			this.yaxis.ctx.lineTo(xPos - this.yaxis.arrow.size, xArrEnd);
+			
+		}
 
         this.yaxis.ctx.stroke();
     }
@@ -300,7 +358,7 @@ var defaultGraphOpts = {axis: 0, offset: { x: 0, y: 0 }, color: defaultGraphColo
 
 function LightGraph(axis, lambda, placeholder, options) {
     if(!(axis instanceof LightAxis) || typeof lambda !== "function" || placeholder === undefined)
-		throw new Error("Invalid input provided :-(");
+		throw new Error("You need to at least provide a axis instance, a callback math function and a container id or instance.");
 	if(typeof placeholder === "string")
 		this.container = document.getElementById(placeholder);
 	else if(placeholder instanceof LightPlot)
@@ -312,16 +370,12 @@ function LightGraph(axis, lambda, placeholder, options) {
 	this.graph.axis = axis;
 	this.graph.function = lambda;
 	
+	this.lastGraphOffsetX;
+	this.lastGraphOffsetY;
+	
 	if(options === undefined)
 		options = {};
 	this.setGraph(options);
-	
-	if(!this.graph.offset.x)
-		this.graph.offset.x = 0;
-	if(!this.graph.offset.y)
-		this.graph.offset.y = 0;
-
-    this.update();
 }
 
 LightGraph.prototype.setGraph = function(options) {
@@ -329,10 +383,23 @@ LightGraph.prototype.setGraph = function(options) {
 		throw new Error("Object required for options");
 		
 	this.graph = {...defaultGraphOpts, ...this.graph, ...options};
+	if(options) {
+		this.graph.offset = {...defaultGraphOpts.offset, ...options.offset};
+	}
+	
+	if(this.lastGraphOffsetX !== this.graph.offset.x || this.lastGraphOffsetY != this.graph.offset.y) {
+		this.container.removeChild(this.graph.ctx.canvas);
+		this.graph.ctx = createCanvas(this.container, 4, this.graph.offset.x, this.graph.offset.y).ctx;
+		
+		this.lastGraphOffsetX = this.graph.offset.x;
+		this.lastGraphOffsetY = this.graph.offset.y;
+	}
+	
+    this.update();
 }
 
 LightGraph.prototype.update = function() {    
-    this.graph.ctx.clearRect(this.graph.offset.x, this.graph.offset.y, this.graph.width, this.graph.height);
+    this.graph.ctx.clearRect(0, 0, this.graph.width, this.graph.height);
     this.graph.ctx.globalAlpha = this.graph.alpha;
     this.graph.ctx.fillStyle = this.graph.color;
 	this.graph.ctx.lineWidth = this.graph.lineWidth;
@@ -372,21 +439,30 @@ function LightPlot(placeholder, options) {
     this.graphs = [];
     this.container = document.getElementById(placeholder);
 
+    this.lastBGOffsetX;
+	this.lastBGOffsetY;
+
+	if(options === undefined)
+		options = {};
     this.optionsOverride = options;
     this.setBackground();
-
-    this.update();
 }
 
 LightPlot.prototype.setBackground = function(options) {
     if(!this.background)
         this.background = createCanvas(this.container, 1);
     this.background = {...defaultBGOpts, ...this.optionsOverride.background, ...this.background, ...options};
+	if(options) {
+		this.background.offset = {...defaultBGOpts.offset, ...options.offset};
+	}
 	
-	if(!this.background.offset.x)
-		this.background.offset.x = 0;
-	if(!this.background.offset.y)
-		this.background.offset.y = 0;
+	if(this.lastBGOffsetX !== this.background.offset.x || this.lastBGOffsetY != this.background.offset.y) {
+		this.container.removeChild(this.background.ctx.canvas);
+		this.background.ctx = createCanvas(this.container, 4, this.background.offset.x, this.background.offset.y).ctx;
+		
+		this.lastBGOffsetX = this.background.offset.x;
+		this.lastBGOffsetY = this.background.offset.y;
+	}
 
     this.updateBackground();
 }
@@ -434,8 +510,8 @@ LightPlot.prototype.update = function() {
 } 
 
 LightPlot.prototype.updateBackground = function() {
-    this.background.ctx.clearRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
+    this.background.ctx.clearRect(0, 0, this.background.width, this.background.height);
     this.background.ctx.globalAlpha = this.background.alpha;
     this.background.ctx.fillStyle = this.background.color;
-    this.background.ctx.fillRect(this.background.offset.x, this.background.offset.y, this.background.width, this.background.height);
+    this.background.ctx.fillRect(0, 0, this.background.width, this.background.height);
 }

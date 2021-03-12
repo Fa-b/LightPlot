@@ -1,7 +1,18 @@
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <script language="javascript" type="text/javascript" src="lightplot.js"></script>
 <script>
-	
+// simple example
+document.addEventListener("DOMContentLoaded", function () {
+	var lightplot = new LightPlot("plotcontainer2");
+	var axis = new LightAxis([-5, 2], [-50, 100], lightplot);
+	var graph = new LightGraph(axis, (x) => {return 2 * Math.pow(x, 5) - Math.pow(x, 3) + 9.8 * Math.pow(x,2) + 11}, lightplot);
+	lightplot.addAxis(axis);
+	lightplot.addGraph(graph);
+});
+
+</script>
+<script>
+// sophisticated example
 var max_points1 = 100;
 
 var data1 = [];
@@ -68,33 +79,59 @@ document.addEventListener("DOMContentLoaded", function () {
 		xaxis: {
 			ticks: 9,
 			offset: {
-				x: 50
+				y: -120
 			},
-			lineWidth: 2
+			arrow: {
+				size: 8
+			},
+			lineWidth: 1
 		},
 		yaxis: {
 			ticks: 2,
 			offset: {
-				y: 75
+				y: 0,
+				x: -100
 			},
-			lineWidth:2
+			arrow: {
+				size: 8
+			},
+			lineWidth:1
 		}
 	}));
 	
-    graph1 = lightplot.addGraph(new LightGraph(axis1, (x) => { return data1[Math.round(x)] }, lightplot));
+    graph1 = lightplot.addGraph(new LightGraph(axis1, (x) => { return data1[Math.round(x)] }, lightplot), {
+		offset: {
+			x: -40
+		}
+	});
     graph2 = lightplot.addGraph(new LightGraph(axis1, (x) => { return 120 + 10 * Math.sin(x / 30 * Math.PI) * data2 }, lightplot));
     graph3 = lightplot.addGraph(new LightGraph(axis1, (x) => { return 80 + 10 * Math.cos((data3 * x) / 30 * Math.PI) }, lightplot));
     graph4 = lightplot.addGraph(new LightGraph(axis1, (x) => { return 40 + 10 * Math.sin(x / 30 * data4) }, lightplot));	
     graph5 = lightplot.addGraph(new LightGraph(axis1, (x) => { return 0 + 10 * Math.sin(data5[Math.round(x)] * Math.PI * 5) }, lightplot, {
 		lineWidth: 3
-	}));
+	}), {
+		offset: {
+			x: -40
+		}
+	});
 	
-	DOMready =true;
+	
+	DOMready = true;
 });
 </script>
 </head>
 <body class="home">
-<div style="display:flex;justify-content: center;">
+<table style="display:flex;justify-content: center;flex-d">
+<tr>
+<td style="padding:30px;">
+<h2>Simple Example:</h2>
+<div id="plotcontainer2" style="width:400px;height:400px;position:relative;"></div>
+</td>
+</tr>
+<tr><td style="padding:30px;">
+<h2>Sophisticated Example:</h2>
 <div id="plotcontainer" style="width:400px;height:500px;position:relative;"></div>
-</div>
+</td>
+</tr>
+</table>
 </body></html>
